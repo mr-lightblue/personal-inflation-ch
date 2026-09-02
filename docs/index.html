@@ -23,6 +23,8 @@
   .panel h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;
             color:var(--ink2);margin:0 0 4px}
   .panel .hint{font-size:12.5px;color:var(--ink3);margin:0 0 14px}
+  .panel .scope{font-size:12px;line-height:1.5;color:var(--ink3);
+                border-left:2px solid var(--rule);padding-left:9px;margin:0 0 14px}
   .row{display:grid;grid-template-columns:1fr 74px;gap:10px;align-items:center;
        margin-bottom:11px}
   .row .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -81,7 +83,10 @@
     <div class="panel">
       <h2>Your basket</h2>
       <p class="hint">Shares of your monthly spending. They start at the official
-      2026 weights and need not add up to 100 — they are rescaled for you.</p>
+      <span class="wy"></span> weights and need not add up to 100 — they are rescaled for you.</p>
+      <p class="scope">Shares of what you spend on consumption — after tax, social
+      contributions and savings, which the index excludes. Health insurance premiums
+      are excluded as a price but included in the weight of healthcare.</p>
       <div id="sliders"></div>
       <div class="sumbar"><span>your shares add up to</span><strong id="sum">100.0</strong></div>
       <div class="btns">
@@ -93,12 +98,12 @@
     <div>
       <div class="heads">
         <div class="card">
-          <div class="lab">Swiss average basket, price change since January 2016</div>
+          <div class="lab">Swiss average basket, price change since <span class="base"></span></div>
           <div class="big" id="offCum">–</div>
           <div class="cmp" id="offYoY">–</div>
         </div>
         <div class="card yours">
-          <div class="lab">Your basket, price change since January 2016</div>
+          <div class="lab">Your basket, price change since <span class="base"></span></div>
           <div class="big" id="youCum">–</div>
           <div class="cmp" id="youYoY">–</div>
         </div>
@@ -106,20 +111,22 @@
 
       <figure>
         <div id="chart" style="position:relative"></div>
-        <figcaption id="cap">Index, January 2016 = 100.</figcaption>
+        <figcaption id="cap">Index, <span class="base"></span> = 100.</figcaption>
       </figure>
     </div>
   </div>
 
   <div class="note">
     <h3>Method</h3>
-    <p id="m1">Each of the thirteen COICOP divisions of the Swiss consumer price
-    index has its own published monthly index. Both lines on the chart are built the
-    same way: the thirteen series are re-based to January 2016 = 100 and combined
-    with one fixed set of weights. The grey line uses the official 2026 weights, the
-    coloured line uses yours, rescaled to sum to 100. Only the weights differ; every
-    price series is the official one, unmodified.</p>
-    <p id="m2"></p>
+    <p id="m1">Both lines combine the thirteen COICOP divisions of the Swiss
+    consumer price index with a single set of weights held fixed: grey uses the
+    official <span class="wy"></span> weights, colour uses yours. The price series are identical for the
+    two lines — only the weights differ. The official weights come mainly from the
+    Federal Statistical Office's household budget survey, and are computed as national
+    spending on each division divided by total consumption spending — the country's
+    spending pattern, not the average household's. Because the official basket is
+    re-weighted every December, a constant-weight recombination differs from the
+    published index by <span id="gap"></span> percentage points over this window.</p>
     <p id="m3"></p>
     <p id="selftest" class="selftest"></p>
   </div>
@@ -127,11 +134,21 @@
 
 <script>
 const F = d3.format(",.1f");
-const P = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+const MINUS = "\u2212";                 // U+2212, not a hyphen
+const sign = (v, d = 1) => (v >= 0 ? "+" : MINUS) + Math.abs(v).toFixed(d);
+const P = v => sign(v) + "%";
 
 d3.json("data/lik_t13.json").then(data => {
   const months = data.months, divs = data.divisions, meta = data.meta;
   const n = months.length;
+  // everything that names the base period is derived from meta.window[0]
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July",
+                       "August", "September", "October", "November", "December"];
+  const Y0 = meta.window[0].slice(0, 4);
+  const BASE = MONTH_NAMES[+meta.window[0].slice(5) - 1] + " " + Y0;
+  d3.selectAll(".wy").text(meta.weight_year);
+  d3.selectAll(".base").text(BASE);
+
   const rel = divs.map(d => d.index.map(v => v / d.index[0] * 100));
   const wOfficial = divs.map(d => d.weight);
   let w = wOfficial.slice();
@@ -158,7 +175,7 @@ d3.json("data/lik_t13.json").then(data => {
   top.append("label").attr("for", (d, i) => "s" + i)
      .text(d => d.coicop + " · " + d.name);
   top.append("span").attr("class", "chg")
-     .text((d, i) => P(rel[i][n - 1] - 100) + " since 2016");
+     .text((d, i) => P(rel[i][n - 1] - 100) + " since " + Y0);
   const track = cell.append("div").attr("class", "track");
   track.append("input").attr("type", "range").attr("id", (d, i) => "s" + i)
       .attr("min", 0).attr("max", SMAX).attr("step", 0.1)
@@ -169,11 +186,11 @@ d3.json("data/lik_t13.json").then(data => {
        .attr("title", (d, i) => "official weight " + wOfficial[i].toFixed(1))
        .style("left", (d, i) => (wOfficial[i] / SMAX * 100).toFixed(2) + "%");
   cell.filter(d => d.coicop === "06").append("p").attr("class", "note")
-      .text(d => "Compulsory health insurance premiums are not part of the LIK. This " +
-            "division prices medical services, medicines and devices; premiums are " +
-            "treated as a transfer, not as consumption. This is why healthcare shows " +
+      .text(d => "The LIK prices medical services, medicines and devices, not health " +
+            "insurance premiums — but premiums do count towards this division's weight, " +
+            "which is why it is the second largest in the basket. Hence healthcare shows " +
             // same series, same formatter as the figure beside the slider
-            P(rel[divs.indexOf(d)][n - 1] - 100) + " over the window while premiums rose.");
+            P(rel[divs.indexOf(d)][n - 1] - 100) + " while premiums rose.");
   const val = rows.append("div");
   val.append("div").attr("class", "share");
   val.append("div").attr("class", "raw");
@@ -187,7 +204,7 @@ d3.json("data/lik_t13.json").then(data => {
   d3.select("#equal").on("click", () => setW(divs.map(() => 100 / divs.length)));
 
   // ---- chart ---------------------------------------------------------------
-  const M = { t: 14, r: 132, b: 26, l: 42 };
+  const M = { t: 26, r: 132, b: 26, l: 42 };
   const svg = d3.select("#chart").append("svg");
   const gx = svg.append("g"), gy = svg.append("g");
   const pathOff = svg.append("path").attr("fill", "none")
@@ -198,6 +215,8 @@ d3.json("data/lik_t13.json").then(data => {
       .attr("dominant-baseline", "middle");
   const endYou = svg.append("text").attr("font-size", 12).attr("font-weight", 700)
       .attr("fill", "var(--yours)").attr("dominant-baseline", "middle");
+  svg.append("text").attr("x", 2).attr("y", 12).attr("font-size", 11)
+     .attr("fill", "var(--ink3)").text("index, " + BASE + " = 100");
   const hover = svg.append("g").style("display", "none");
   hover.append("line").attr("stroke", "#b9b9c2").attr("stroke-width", 1);
   hover.append("circle").attr("r", 3.5).attr("fill", "var(--official)");
@@ -219,8 +238,7 @@ d3.json("data/lik_t13.json").then(data => {
     const yoyY = (yours[n - 1] / yours[n - 13] - 1) * 100;
     d3.select("#offYoY").text("last 12 months " + P(yoyO));
     d3.select("#youYoY").text("last 12 months " + P(yoyY) +
-      "  ·  " + (cumY - cumO >= 0 ? "+" : "") + (cumY - cumO).toFixed(1) +
-      " points vs official since 2016");
+      "  ·  " + sign(cumY - cumO) + " points vs official since " + Y0);
 
     const wd = Math.max(320, d3.select("#chart").node().clientWidth), ht = 330;
     svg.attr("width", wd).attr("height", ht).attr("viewBox", [0, 0, wd, ht]);
@@ -272,23 +290,18 @@ d3.json("data/lik_t13.json").then(data => {
   }
 
   // ---- method note ---------------------------------------------------------
-  d3.select("#m2").html(
-    `The grey weights are the official ones for ${meta.weight_year}, published at the ` +
-    `same level as the indices and summing to ${meta.weight_sum.toFixed(3)}. The Swiss ` +
-    `basket is not fixed, though: the LIK re-weights and re-bases every December, so a ` +
-    `constant-weight recombination is not the same object as the published index. Over ` +
-    `the ${months.length} months shown the two differ by ` +
-    `<strong>${meta.reconstruction_gap_pp >= 0 ? "+" : ""}` +
-    `${meta.reconstruction_gap_pp.toFixed(3)} percentage points</strong> — that gap is a ` +
-    `property of an annually re-weighted index, not a defect of this page. Holding the ` +
-    `weights still is what makes the two lines here comparable to each other. ` +
-    `The largest single item in many Swiss household budgets — the health insurance ` +
-    `premium — is therefore outside this calculator entirely.`);
+  // the one number inside G.C.'s paragraph, bound to the data
+  d3.select("#gap").text(meta.reconstruction_gap_pp.toFixed(2));
   d3.select("#m3").html(
-    `Source: ${meta.source}, ${meta.table}, published ${meta.published}; ` +
-    `index base ${meta.index_base}; window ${meta.window[0]} to ${meta.window[1]}. ` +
-    `The published file is not versioned, so the copy used here is archived as ` +
-    `<code>${meta.archived_file}</code>. Licence: ${meta.licence}.`);
+    `Data: ${meta.source}, ${meta.table.split(" ")[0]}, published ${meta.published}; ` +
+    `${meta.licence}. The published file is not versioned, so the copy used here is ` +
+    `archived as <code>${meta.archived_file}</code>. ` +
+    `Method: Federal Statistical Office, <i>Landesindex der Konsumentenpreise ` +
+    `(December 2020 = 100), Methodische Grundlagen</i>, Neuchâtel 2022, BFS number ` +
+    `853-2000, ISBN 978-3-303-05778-0; reproduction permitted for non-commercial use ` +
+    `with attribution. That document describes the previous revision ` +
+    `(December 2020 = 100, twelve main groups) and is cited here for structural ` +
+    `principles only, not for figures or nomenclature.`);
 
   // self-test: with the sliders at the official weights the two lines coincide
   const probe = combine(wOfficial);
