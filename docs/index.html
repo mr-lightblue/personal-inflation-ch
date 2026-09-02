@@ -17,7 +17,7 @@
   .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
   h1{font-size:26px;line-height:1.2;margin:0 0 10px}
   .sub{color:var(--ink2);max-width:70ch;margin:0 0 24px}
-  .layout{display:grid;grid-template-columns:360px 1fr;gap:32px;align-items:start}
+  .layout{display:grid;grid-template-columns:520px 1fr;gap:30px;align-items:start}
   @media (max-width:900px){.layout{grid-template-columns:1fr}}
   .panel{background:var(--panel);border-radius:6px;padding:16px 16px 8px}
   .panel h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;
@@ -25,21 +25,43 @@
   .panel .hint{font-size:12.5px;color:var(--ink3);margin:0 0 14px}
   .panel .scope{font-size:12px;line-height:1.5;color:var(--ink3);
                 border-left:2px solid var(--rule);padding-left:9px;margin:0 0 14px}
-  .row{display:grid;grid-template-columns:1fr 74px;gap:10px;align-items:center;
-       margin-bottom:11px}
+  .row{display:grid;grid-template-columns:1fr 56px 84px;gap:8px;align-items:center;
+       margin:0 -7px 3px;padding:4px 7px;border-radius:5px;
+       background:transparent;transition:background .12s}
   .row .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .row label{font-size:13px;color:var(--ink)}
-  .row .chg{font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums;
+  .row label{font-size:13px;line-height:1.3;color:var(--ink)}
+  .row .chg{font-size:11px;color:var(--ink3);font-variant-numeric:tabular-nums;
             white-space:nowrap}
-  .track{position:relative;padding-top:2px}
-  .track .tick{position:absolute;top:0;width:1px;height:7px;background:var(--accent)}
-  .row .note{font-size:11.5px;line-height:1.45;color:var(--ink3);
-             margin:5px 0 2px;max-width:52ch}
-  .row .share{font-variant-numeric:tabular-nums;text-align:right;font-size:13.5px;
-              color:var(--ink)}
-  .row .raw{font-variant-numeric:tabular-nums;text-align:right;font-size:11.5px;
-            color:var(--ink3)}
+  .track{position:relative;padding-top:1px}
+  .track .tick{position:absolute;top:0;width:1px;height:6px;background:var(--accent)}
+  .row .note{grid-column:1/-1;font-size:11.5px;line-height:1.45;color:var(--ink3);
+             margin:5px 0 1px;max-width:56ch}
+  .rt{text-align:right}
+  .row .share{font-variant-numeric:tabular-nums;font-size:13.5px;color:var(--ink);
+              line-height:1.25}
+  .row .lim{font-size:10.5px;line-height:1.2;color:var(--accent);white-space:nowrap;
+            min-height:1.2em}                       /* space reserved: rows never jump */
+
+  /* a locked row must read as locked while scanning thirteen of them */
+  .row.locked{background:#ececf1}
+  .row.locked label,.row.locked .share{color:var(--ink3)}
+  .row.locked .chg{color:#9a9aa4}
+  .row.locked input[type=range]{accent-color:#9a9aa4}
+
+  .lock{display:inline-flex;align-items:center;justify-content:center;gap:5px;
+        font:inherit;font-size:11.5px;line-height:1;height:25px;width:100%;padding:0 6px;
+        border:1px solid var(--rule);background:#fff;border-radius:4px;cursor:pointer;
+        color:var(--ink3)}
+  .lock svg{flex:none;display:block}
+  .lock:hover{border-color:var(--ink3);color:var(--ink2)}
+  .row.locked .lock{border-color:var(--ink2);background:#fff;color:var(--ink)}
+  /* no room for the word: the padlock carries it, aria-label and title stay */
+  @media (max-width:1000px){.lock .lw{display:none}
+                            .row{grid-template-columns:1fr 56px 44px}}
+  .lockinfo{font-size:12px;line-height:1.45;color:var(--ink3);padding:2px 0 10px;
+            min-height:3.1em}
   input[type=range]{width:100%;accent-color:var(--yours);margin:0}
+  input[type=range]:disabled{opacity:.55;cursor:not-allowed}
   .sumbar{display:flex;justify-content:space-between;align-items:baseline;
           border-top:1px solid var(--rule);margin-top:10px;padding:10px 0 6px;
           font-size:13px;color:var(--ink2)}
@@ -56,7 +78,6 @@
   .card .cmp{font-size:12.5px;color:var(--ink2);margin-top:6px}
   .yours .big{color:var(--yours)}
   figure{margin:0}
-  figcaption{font-size:12.5px;color:var(--ink3);margin-top:6px}
   .selftest{font-variant-numeric:tabular-nums}
   .note{border-top:1px solid var(--rule);margin-top:28px;padding-top:14px;
         font-size:12.5px;color:var(--ink3);max-width:88ch}
@@ -83,15 +104,18 @@
     <div class="panel">
       <h2>Your basket</h2>
       <p class="hint">Shares of your monthly spending. They start at the official
-      <span class="wy"></span> weights and need not add up to 100 — they are rescaled for you.</p>
+      <span class="wy"></span> weights and always add up to 100: raise one division and the
+      unlocked ones give up the difference.</p>
+      <p class="hint">Lock a row to pin its share. Locked rows never move when you drag
+      another one.</p>
       <p class="scope">Shares of what you spend on consumption — after tax, social
       contributions and savings, which the index excludes. Health insurance premiums
       are excluded as a price but included in the weight of healthcare.</p>
       <div id="sliders"></div>
       <div class="sumbar"><span>your shares add up to</span><strong id="sum">100.0</strong></div>
+      <div class="lockinfo" id="lockinfo"></div>
       <div class="btns">
-        <button id="reset">Official weights</button>
-        <button id="equal">Equal weights</button>
+        <button id="reset">Reset to the official basket</button>
       </div>
     </div>
 
@@ -111,7 +135,6 @@
 
       <figure>
         <div id="chart" style="position:relative"></div>
-        <figcaption id="cap">Index, <span class="base"></span> = 100.</figcaption>
       </figure>
     </div>
   </div>
@@ -151,7 +174,10 @@ d3.json("data/lik_t13.json").then(data => {
 
   const rel = divs.map(d => d.index.map(v => v / d.index[0] * 100));
   const wOfficial = divs.map(d => d.weight);
-  let w = wOfficial.slice();
+  const TOTAL = 100000;                    // = 100.000 %, in thousandths of a point
+  const UNIT = 1000;                       // 1 percentage point
+  const officialT = wOfficial.map(v => Math.round(v * UNIT));
+  officialT[officialT.indexOf(Math.max(...officialT))] += TOTAL - officialT.reduce((a, b) => a + b, 0);
 
   // both lines are the same computation, differing only in the weights
   function combine(weights) {
@@ -164,12 +190,76 @@ d3.json("data/lik_t13.json").then(data => {
     }
     return out;
   }
-  const official = combine(wOfficial);   // the published total is no longer drawn
+  // the grey line is built from the same integer basket the sliders start at,
+  // so at the default settings the two lines are the same numbers, not merely close
+  const official = combine(officialT);
 
   // ---- controls ------------------------------------------------------------
+  // The sliders ARE the shares. State is held in integer thousandths of a
+  // percentage point so the total is exactly TOTAL at every moment and cannot
+  // drift: no floating-point residue, no rescaling at computation time.
+  const SMAX = 60;                         // track scale, in percentage points
+  const SEED = 500;                        // 0.5 pp of pull, so a division at 0
+                                           // can be fed again when others fall
+  let t = officialT.slice();
+  let locked = divs.map(() => false);
+  const idx = d3.range(divs.length);
+
+  // largest-remainder apportionment: integers that sum to exactly `total`
+  function apportion(total, weights) {
+    const s = d3.sum(weights);
+    const out = weights.map(() => 0);
+    if (total <= 0 || s <= 0) {
+      if (total > 0) out[0] = total;
+      return out;
+    }
+    const raw = weights.map(x => total * x / s);
+    raw.forEach((v, k) => out[k] = Math.floor(v));
+    let rest = total - d3.sum(out);
+    const order = raw.map((v, k) => [v - Math.floor(v), k]).sort((p, q) => q[0] - p[0]);
+    for (let k = 0; rest > 0; k++, rest--) out[order[k % order.length][1]]++;
+    return out;
+  }
+
+  const SHACKLE_OPEN = "M4.6 7V4.4a2.4 2.4 0 0 1 4.8 0";        // shackle sprung
+  const SHACKLE_SHUT = "M4.6 7V4.4a2.4 2.4 0 0 1 4.8 0V7";       // shackle closed
+  const lockedT = () => d3.sum(idx.filter(j => locked[j]), j => t[j]);
+  const freeOf = i => idx.filter(j => j !== i && !locked[j]);   // who absorbs the change
+  const allowedT = i => TOTAL - d3.sum(idx.filter(j => j !== i && locked[j]), j => t[j]);
+
+  // move division i to `targetT`, letting the unlocked others absorb the difference
+  function moveTo(i, targetT) {
+    const U = freeOf(i);
+    if (!U.length) return;                       // nothing can absorb: refuse to move
+    const cap = allowedT(i);
+    targetT = Math.max(0, Math.min(cap, Math.round(targetT)));
+    const pool = cap - t[i];                     // what the unlocked others hold now
+    const newPool = cap - targetT;               // what they must hold after the move
+    let base;
+    if (pool === 0) {
+      base = U.map(() => 1);                     // all at zero: split equally
+    } else if (newPool > pool) {
+      base = U.map(j => t[j] === 0 ? SEED : t[j]);   // rising: revive the zeros
+    } else {
+      base = U.map(j => t[j]);                   // falling: strictly proportional
+    }
+    const alloc = apportion(newPool, base);
+    U.forEach((j, k) => t[j] = alloc[k]);
+    t[i] = targetT;
+    fixTotal(i);
+  }
+
+  // the invariant, enforced rather than hoped for
+  function fixTotal(moved) {
+    const off = TOTAL - d3.sum(t);
+    if (!off) return;
+    const cands = idx.filter(j => j !== moved && !locked[j] && t[j] + off >= 0);
+    const j = cands.length ? cands[d3.maxIndex(cands, k => t[k])] : moved;
+    t[j] += off;
+  }
+
   const box = d3.select("#sliders");
   const rows = box.selectAll("div.row").data(divs).join("div").attr("class", "row");
-  const SMAX = 60;
   const cell = rows.append("div");
   const top = cell.append("div").attr("class", "top");
   top.append("label").attr("for", (d, i) => "s" + i)
@@ -177,40 +267,48 @@ d3.json("data/lik_t13.json").then(data => {
   top.append("span").attr("class", "chg")
      .text((d, i) => P(rel[i][n - 1] - 100) + " since " + Y0);
   const track = cell.append("div").attr("class", "track");
-  track.append("input").attr("type", "range").attr("id", (d, i) => "s" + i)
-      .attr("min", 0).attr("max", SMAX).attr("step", 0.1)
+  const input = track.append("input").attr("type", "range").attr("id", (d, i) => "s" + i)
+      .attr("min", 0).attr("step", 0.1)
       .attr("aria-label", d => d.name)
-      .property("value", (d, i) => w[i])
-      .on("input", function (e, d) { w[divs.indexOf(d)] = +this.value; draw(); });
-  track.append("span").attr("class", "tick")                 // official weight
-       .attr("title", (d, i) => "official weight " + wOfficial[i].toFixed(1))
-       .style("left", (d, i) => (wOfficial[i] / SMAX * 100).toFixed(2) + "%");
-  cell.filter(d => d.coicop === "06").append("p").attr("class", "note")
+      .on("input", function (e, d) { moveTo(divs.indexOf(d), +this.value * UNIT); draw(); });
+  const tick = track.append("span").attr("class", "tick")           // official weight
+       .attr("title", (d, i) => "official weight " + wOfficial[i].toFixed(1));
+  const val = rows.append("div").attr("class", "rt");
+  val.append("div").attr("class", "share");
+  val.append("div").attr("class", "lim");          // always present: reserves its space
+  const lockBtn = rows.append("button").attr("class", "lock").attr("type", "button")
+      .on("click", function (e, d) { const i = divs.indexOf(d); locked[i] = !locked[i]; draw(); });
+  const ico = lockBtn.append("svg").attr("viewBox", "0 0 14 16")
+      .attr("width", 12).attr("height", 14).attr("aria-hidden", "true")
+      .attr("fill", "none").attr("stroke", "currentColor")
+      .attr("stroke-width", 1.3).attr("stroke-linecap", "round")
+      .attr("stroke-linejoin", "round");
+  ico.append("rect").attr("x", 2.4).attr("y", 7).attr("width", 9.2).attr("height", 7.2)
+     .attr("rx", 1.3);
+  ico.append("path").attr("class", "shackle");
+  lockBtn.append("span").attr("class", "lw");
+
+  rows.filter(d => d.coicop === "06").append("p").attr("class", "note")
       .text(d => "The LIK prices medical services, medicines and devices, not health " +
             "insurance premiums — but premiums do count towards this division's weight, " +
             "which is why it is the second largest in the basket. Hence healthcare shows " +
             // same series, same formatter as the figure beside the slider
             P(rel[divs.indexOf(d)][n - 1] - 100) + " while premiums rose.");
-  const val = rows.append("div");
-  val.append("div").attr("class", "share");
-  val.append("div").attr("class", "raw");
-
-  function setW(values) {
-    w = values.slice();
-    rows.select("input").property("value", (d, i) => w[i]);
+  d3.select("#reset").on("click", () => {
+    t = officialT.slice();
+    locked = divs.map(() => false);
     draw();
-  }
-  d3.select("#reset").on("click", () => setW(wOfficial));
-  d3.select("#equal").on("click", () => setW(divs.map(() => 100 / divs.length)));
+  });
 
   // ---- chart ---------------------------------------------------------------
   const M = { t: 26, r: 132, b: 26, l: 42 };
   const svg = d3.select("#chart").append("svg");
   const gx = svg.append("g"), gy = svg.append("g");
+  // grey drawn first and heavier, so its edge shows through when the lines coincide
   const pathOff = svg.append("path").attr("fill", "none")
-      .attr("stroke", "var(--official)").attr("stroke-width", 1.6);
+      .attr("stroke", "var(--official)").attr("stroke-width", 5);
   const pathYou = svg.append("path").attr("fill", "none")
-      .attr("stroke", "var(--yours)").attr("stroke-width", 2.2);
+      .attr("stroke", "var(--yours)").attr("stroke-width", 2);
   const endOff = svg.append("text").attr("font-size", 12).attr("fill", "var(--official)")
       .attr("dominant-baseline", "middle");
   const endYou = svg.append("text").attr("font-size", 12).attr("font-weight", 700)
@@ -225,11 +323,48 @@ d3.json("data/lik_t13.json").then(data => {
   let x, y, yours = [];
 
   function draw() {
-    yours = combine(w);
-    const sum = d3.sum(w);
-    d3.select("#sum").text(F(sum));
-    rows.select(".share").text((d, i) => (sum ? (w[i] / sum * 100) : 0).toFixed(1) + "%");
-    rows.select(".raw").text((d, i) => "set " + w[i].toFixed(1));
+    yours = combine(t);
+    d3.select("#sum").text(F(d3.sum(t) / UNIT));
+    rows.classed("locked", (d, i) => locked[i]);
+    rows.select(".share").text((d, i) => (t[i] / UNIT).toFixed(1) + "%");
+    rows.select(".lock")
+        .attr("aria-pressed", (d, i) => locked[i])
+        .attr("aria-label", (d, i) => (locked[i] ? "Unlock " : "Lock ") + d.name)
+        .attr("title", (d, i) => (locked[i] ? "Unlock " : "Lock ") + d.name);
+    rows.select(".shackle").attr("d", (d, i) => locked[i] ? SHACKLE_SHUT : SHACKLE_OPEN);
+    rows.select(".lw").text((d, i) => locked[i] ? "Locked" : "Lock");
+
+    // per-row ceiling, disabled state and the reason for it
+    rows.select("input")
+        .property("value", (d, i) => (t[i] / UNIT).toFixed(1))
+        .attr("max", (d, i) => Math.min(SMAX, allowedT(i) / UNIT).toFixed(1))
+        .property("disabled", (d, i) => locked[i] || !freeOf(i).length);
+    // the marker on the row says only THAT it is stuck; the reason is said once, below
+    const atCeiling = i => !locked[i] && freeOf(i).length &&
+          allowedT(i) / UNIT < SMAX && t[i] / UNIT > allowedT(i) / UNIT - 0.05;
+    const noRoom = i => !locked[i] && !freeOf(i).length;
+    rows.select(".lim").text((d, i) =>
+        noRoom(i) ? "no room" : atCeiling(i) ? "at limit" : "");
+    rows.select(".tick").style("display", (d, i) =>
+        wOfficial[i] <= Math.min(SMAX, allowedT(i) / UNIT) ? null : "none")
+        .style("left", (d, i) =>
+        (wOfficial[i] / Math.min(SMAX, allowedT(i) / UNIT) * 100).toFixed(2) + "%");
+
+    const nLocked = locked.filter(Boolean).length;
+    let msg = nLocked
+      ? nLocked + (nLocked === 1 ? " division locked, holding " : " divisions locked, holding ")
+        + (lockedT() / UNIT).toFixed(1) + "%  ·  "
+        + ((TOTAL - lockedT()) / UNIT).toFixed(1) + "% left to move."
+      : "No divisions locked.";
+    const stuck = idx.filter(noRoom), capped = idx.filter(atCeiling);
+    if (stuck.length)
+      msg += " Every other division is locked, so " + divs[stuck[0]].name.toLowerCase() +
+             " cannot move at all — unlock one to free it.";
+    else if (capped.length)
+      msg += " " + divs[capped[0]].name + " is at its ceiling: the locked divisions hold " +
+             (lockedT() / UNIT).toFixed(1) + "%, so it cannot pass " +
+             (allowedT(capped[0]) / UNIT).toFixed(1) + "%.";
+    d3.select("#lockinfo").text(msg);
 
     const cumO = official[n - 1] - 100, cumY = yours[n - 1] - 100;
     d3.select("#offCum").text(P(cumO));
@@ -240,7 +375,11 @@ d3.json("data/lik_t13.json").then(data => {
     d3.select("#youYoY").text("last 12 months " + P(yoyY) +
       "  ·  " + sign(cumY - cumO) + " points vs official since " + Y0);
 
-    const wd = Math.max(320, d3.select("#chart").node().clientWidth), ht = 330;
+    const wd = Math.max(320, d3.select("#chart").node().clientWidth);
+    // end the two columns at roughly the same point, without a grotesque aspect ratio
+    const panelH = d3.select(".panel").node().getBoundingClientRect().height;
+    const headsH = d3.select(".heads").node().getBoundingClientRect().height;
+    const ht = Math.round(Math.max(420, Math.min(760, panelH - headsH - 14)));
     svg.attr("width", wd).attr("height", ht).attr("viewBox", [0, 0, wd, ht]);
     x = d3.scaleLinear([0, n - 1], [M.l, wd - M.r]);
     const lo = d3.min([d3.min(official), d3.min(yours)]);
@@ -304,7 +443,7 @@ d3.json("data/lik_t13.json").then(data => {
     `principles only, not for figures or nomenclature.`);
 
   // self-test: with the sliders at the official weights the two lines coincide
-  const probe = combine(wOfficial);
+  const probe = combine(officialT);
   const maxDiff = d3.max(probe.map((v, i) => Math.abs(v - official[i])));
   d3.select("#selftest").html(
     `Self-test: recombining with the official weights reproduces the grey line to ` +
