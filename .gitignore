@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Nothing else is transient: docs/data/lik_t13.json is the artefact the page
+# fetches and is committed on purpose, and data/lik_2026-08-03.xlsx is the
+# archived source workbook, kept because the publisher's URL is not versioned.

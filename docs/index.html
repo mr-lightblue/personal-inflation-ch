@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your own inflation — Swiss CPI re-weighted</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root{
+    --ink:#1a1a1e; --ink2:#45454d; --ink3:#6e6e78; --rule:#e0e0e6;
+    --page:#ffffff; --panel:#f7f7f9;
+    --official:#6e6e78; --yours:#4b4aa8; --accent:#c0752f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);
+       font:15px/1.5 "Helvetica Neue",Arial,sans-serif;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+  h1{font-size:26px;line-height:1.2;margin:0 0 10px}
+  .sub{color:var(--ink2);max-width:70ch;margin:0 0 24px}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:32px;align-items:start}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border-radius:6px;padding:16px 16px 8px}
+  .panel h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;
+            color:var(--ink2);margin:0 0 4px}
+  .panel .hint{font-size:12.5px;color:var(--ink3);margin:0 0 14px}
+  .row{display:grid;grid-template-columns:1fr 74px;gap:10px;align-items:center;
+       margin-bottom:11px}
+  .row .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .row label{font-size:13px;color:var(--ink)}
+  .row .chg{font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums;
+            white-space:nowrap}
+  .track{position:relative;padding-top:2px}
+  .track .tick{position:absolute;top:0;width:1px;height:7px;background:var(--accent)}
+  .row .note{font-size:11.5px;line-height:1.45;color:var(--ink3);
+             margin:5px 0 2px;max-width:52ch}
+  .row .share{font-variant-numeric:tabular-nums;text-align:right;font-size:13.5px;
+              color:var(--ink)}
+  .row .raw{font-variant-numeric:tabular-nums;text-align:right;font-size:11.5px;
+            color:var(--ink3)}
+  input[type=range]{width:100%;accent-color:var(--yours);margin:0}
+  .sumbar{display:flex;justify-content:space-between;align-items:baseline;
+          border-top:1px solid var(--rule);margin-top:10px;padding:10px 0 6px;
+          font-size:13px;color:var(--ink2)}
+  .sumbar strong{font-variant-numeric:tabular-nums;color:var(--ink);font-size:15px}
+  .btns{display:flex;gap:8px;padding-bottom:10px}
+  button{font:inherit;font-size:13px;padding:6px 11px;border:1px solid var(--rule);
+         background:#fff;border-radius:4px;cursor:pointer;color:var(--ink)}
+  button:hover{border-color:var(--ink3)}
+  .heads{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:14px}
+  .card{border:1px solid var(--rule);border-radius:6px;padding:14px 16px}
+  .card .lab{font-size:12.5px;color:var(--ink3);margin-bottom:6px}
+  .card .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;
+             line-height:1.1}
+  .card .cmp{font-size:12.5px;color:var(--ink2);margin-top:6px}
+  .yours .big{color:var(--yours)}
+  figure{margin:0}
+  figcaption{font-size:12.5px;color:var(--ink3);margin-top:6px}
+  .selftest{font-variant-numeric:tabular-nums}
+  .note{border-top:1px solid var(--rule);margin-top:28px;padding-top:14px;
+        font-size:12.5px;color:var(--ink3);max-width:88ch}
+  .note h3{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;
+           color:var(--ink2);margin:0 0 6px}
+  .note p{margin:0 0 8px}
+  a{color:var(--yours)}
+  .tip{font:12.5px/1.35 "Helvetica Neue",Arial,sans-serif;background:#fff;
+       border:1px solid var(--rule);border-radius:4px;padding:6px 8px;
+       pointer-events:none;position:absolute;opacity:0;transition:opacity .08s;
+       box-shadow:0 1px 4px rgba(0,0,0,.08);white-space:nowrap}
+  .tip b{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Your own inflation</h1>
+  <p class="sub">The Swiss consumer price index measures the price of one basket:
+  the average household&rsquo;s. Nobody spends like the average. Move the sliders to
+  the shares <em>you</em> spend, and the same official price data is re-weighted
+  into your own index.</p>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Your basket</h2>
+      <p class="hint">Shares of your monthly spending. They start at the official
+      2026 weights and need not add up to 100 — they are rescaled for you.</p>
+      <div id="sliders"></div>
+      <div class="sumbar"><span>your shares add up to</span><strong id="sum">100.0</strong></div>
+      <div class="btns">
+        <button id="reset">Official weights</button>
+        <button id="equal">Equal weights</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="heads">
+        <div class="card">
+          <div class="lab">Swiss average basket, price change since January 2016</div>
+          <div class="big" id="offCum">–</div>
+          <div class="cmp" id="offYoY">–</div>
+        </div>
+        <div class="card yours">
+          <div class="lab">Your basket, price change since January 2016</div>
+          <div class="big" id="youCum">–</div>
+          <div class="cmp" id="youYoY">–</div>
+        </div>
+      </div>
+
+      <figure>
+        <div id="chart" style="position:relative"></div>
+        <figcaption id="cap">Index, January 2016 = 100.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="note">
+    <h3>Method</h3>
+    <p id="m1">Each of the thirteen COICOP divisions of the Swiss consumer price
+    index has its own published monthly index. Both lines on the chart are built the
+    same way: the thirteen series are re-based to January 2016 = 100 and combined
+    with one fixed set of weights. The grey line uses the official 2026 weights, the
+    coloured line uses yours, rescaled to sum to 100. Only the weights differ; every
+    price series is the official one, unmodified.</p>
+    <p id="m2"></p>
+    <p id="m3"></p>
+    <p id="selftest" class="selftest"></p>
+  </div>
+</div>
+
+<script>
+const F = d3.format(",.1f");
+const P = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+
+d3.json("data/lik_t13.json").then(data => {
+  const months = data.months, divs = data.divisions, meta = data.meta;
+  const n = months.length;
+  const rel = divs.map(d => d.index.map(v => v / d.index[0] * 100));
+  const wOfficial = divs.map(d => d.weight);
+  let w = wOfficial.slice();
+
+  // both lines are the same computation, differing only in the weights
+  function combine(weights) {
+    const s = d3.sum(weights);
+    if (!s) return new Array(n).fill(100);
+    const out = new Array(n).fill(0);
+    for (let i = 0; i < divs.length; i++) {
+      const k = weights[i] / s;
+      for (let t = 0; t < n; t++) out[t] += k * rel[i][t];
+    }
+    return out;
+  }
+  const official = combine(wOfficial);   // the published total is no longer drawn
+
+  // ---- controls ------------------------------------------------------------
+  const box = d3.select("#sliders");
+  const rows = box.selectAll("div.row").data(divs).join("div").attr("class", "row");
+  const SMAX = 60;
+  const cell = rows.append("div");
+  const top = cell.append("div").attr("class", "top");
+  top.append("label").attr("for", (d, i) => "s" + i)
+     .text(d => d.coicop + " · " + d.name);
+  top.append("span").attr("class", "chg")
+     .text((d, i) => P(rel[i][n - 1] - 100) + " since 2016");
+  const track = cell.append("div").attr("class", "track");
+  track.append("input").attr("type", "range").attr("id", (d, i) => "s" + i)
+      .attr("min", 0).attr("max", SMAX).attr("step", 0.1)
+      .attr("aria-label", d => d.name)
+      .property("value", (d, i) => w[i])
+      .on("input", function (e, d) { w[divs.indexOf(d)] = +this.value; draw(); });
+  track.append("span").attr("class", "tick")                 // official weight
+       .attr("title", (d, i) => "official weight " + wOfficial[i].toFixed(1))
+       .style("left", (d, i) => (wOfficial[i] / SMAX * 100).toFixed(2) + "%");
+  cell.filter(d => d.coicop === "06").append("p").attr("class", "note")
+      .text(d => "Compulsory health insurance premiums are not part of the LIK. This " +
+            "division prices medical services, medicines and devices; premiums are " +
+            "treated as a transfer, not as consumption. This is why healthcare shows " +
+            // same series, same formatter as the figure beside the slider
+            P(rel[divs.indexOf(d)][n - 1] - 100) + " over the window while premiums rose.");
+  const val = rows.append("div");
+  val.append("div").attr("class", "share");
+  val.append("div").attr("class", "raw");
+
+  function setW(values) {
+    w = values.slice();
+    rows.select("input").property("value", (d, i) => w[i]);
+    draw();
+  }
+  d3.select("#reset").on("click", () => setW(wOfficial));
+  d3.select("#equal").on("click", () => setW(divs.map(() => 100 / divs.length)));
+
+  // ---- chart ---------------------------------------------------------------
+  const M = { t: 14, r: 132, b: 26, l: 42 };
+  const svg = d3.select("#chart").append("svg");
+  const gx = svg.append("g"), gy = svg.append("g");
+  const pathOff = svg.append("path").attr("fill", "none")
+      .attr("stroke", "var(--official)").attr("stroke-width", 1.6);
+  const pathYou = svg.append("path").attr("fill", "none")
+      .attr("stroke", "var(--yours)").attr("stroke-width", 2.2);
+  const endOff = svg.append("text").attr("font-size", 12).attr("fill", "var(--official)")
+      .attr("dominant-baseline", "middle");
+  const endYou = svg.append("text").attr("font-size", 12).attr("font-weight", 700)
+      .attr("fill", "var(--yours)").attr("dominant-baseline", "middle");
+  const hover = svg.append("g").style("display", "none");
+  hover.append("line").attr("stroke", "#b9b9c2").attr("stroke-width", 1);
+  hover.append("circle").attr("r", 3.5).attr("fill", "var(--official)");
+  hover.append("circle").attr("r", 3.5).attr("fill", "var(--yours)").attr("class", "cy");
+  const tip = d3.select("#chart").append("div").attr("class", "tip");
+  let x, y, yours = [];
+
+  function draw() {
+    yours = combine(w);
+    const sum = d3.sum(w);
+    d3.select("#sum").text(F(sum));
+    rows.select(".share").text((d, i) => (sum ? (w[i] / sum * 100) : 0).toFixed(1) + "%");
+    rows.select(".raw").text((d, i) => "set " + w[i].toFixed(1));
+
+    const cumO = official[n - 1] - 100, cumY = yours[n - 1] - 100;
+    d3.select("#offCum").text(P(cumO));
+    d3.select("#youCum").text(P(cumY));
+    const yoyO = (official[n - 1] / official[n - 13] - 1) * 100;
+    const yoyY = (yours[n - 1] / yours[n - 13] - 1) * 100;
+    d3.select("#offYoY").text("last 12 months " + P(yoyO));
+    d3.select("#youYoY").text("last 12 months " + P(yoyY) +
+      "  ·  " + (cumY - cumO >= 0 ? "+" : "") + (cumY - cumO).toFixed(1) +
+      " points vs official since 2016");
+
+    const wd = Math.max(320, d3.select("#chart").node().clientWidth), ht = 330;
+    svg.attr("width", wd).attr("height", ht).attr("viewBox", [0, 0, wd, ht]);
+    x = d3.scaleLinear([0, n - 1], [M.l, wd - M.r]);
+    const lo = d3.min([d3.min(official), d3.min(yours)]);
+    const hi = d3.max([d3.max(official), d3.max(yours)]);
+    y = d3.scaleLinear([Math.min(96, lo - 1), hi + 1], [ht - M.b, M.t]).nice();
+
+    const line = d3.line().x((_, i) => x(i)).y(v => y(v));
+    pathOff.attr("d", line(official));
+    pathYou.attr("d", line(yours));
+
+    // direct labels at the right-hand end, nudged apart when they collide
+    let yo = y(official[n - 1]), yy = y(yours[n - 1]);
+    if (Math.abs(yo - yy) < 14) { const m = (yo + yy) / 2; yo = m - 7; yy = m + 7; }
+    endOff.attr("x", x(n - 1) + 8).attr("y", yo).text("Swiss average basket");
+    endYou.attr("x", x(n - 1) + 8).attr("y", yy).text("your basket");
+
+    const ticks = d3.range(n).filter(i => months[i].endsWith("-01"));
+    gx.attr("transform", `translate(0,${ht - M.b})`)
+      .call(d3.axisBottom(x).tickValues(ticks).tickFormat(i => months[i].slice(0, 4)))
+      .call(g => g.select(".domain").attr("stroke", "#c9c9cf"))
+      .call(g => g.selectAll("text").attr("fill", "var(--ink3)").style("font-size", "11px"));
+    gy.attr("transform", `translate(${M.l},0)`)
+      .call(d3.axisLeft(y).ticks(6))
+      .call(g => g.select(".domain").remove())
+      .call(g => g.selectAll(".tick line").attr("x2", wd - M.l - M.r)
+                  .attr("stroke", "#eeeef2"))
+      .call(g => g.selectAll("text").attr("fill", "var(--ink3)").style("font-size", "11px"));
+    svg.on("pointermove", move).on("pointerleave", () => {
+      hover.style("display", "none"); tip.style("opacity", 0);
+    });
+  }
+
+  function move(event) {
+    const [mx] = d3.pointer(event);
+    const i = Math.max(0, Math.min(n - 1, Math.round(x.invert(mx))));
+    hover.style("display", null);
+    hover.select("line").attr("x1", x(i)).attr("x2", x(i)).attr("y1", M.t)
+         .attr("y2", y.range()[0]);
+    hover.selectAll("circle").attr("cx", x(i));
+    hover.select("circle").attr("cy", y(official[i]));
+    hover.select(".cy").attr("cy", y(yours[i]));
+    tip.style("opacity", 1)
+       .style("left", Math.min(x(i) + 12, svg.attr("width") - 200) + "px")
+       .style("top", (y(Math.max(official[i], yours[i])) - 46) + "px")
+       .html(`${months[i]}<br>Swiss average <b>${official[i].toFixed(1)}</b>` +
+             `<br>yours <b>${yours[i].toFixed(1)}</b>`);
+  }
+
+  // ---- method note ---------------------------------------------------------
+  d3.select("#m2").html(
+    `The grey weights are the official ones for ${meta.weight_year}, published at the ` +
+    `same level as the indices and summing to ${meta.weight_sum.toFixed(3)}. The Swiss ` +
+    `basket is not fixed, though: the LIK re-weights and re-bases every December, so a ` +
+    `constant-weight recombination is not the same object as the published index. Over ` +
+    `the ${months.length} months shown the two differ by ` +
+    `<strong>${meta.reconstruction_gap_pp >= 0 ? "+" : ""}` +
+    `${meta.reconstruction_gap_pp.toFixed(3)} percentage points</strong> — that gap is a ` +
+    `property of an annually re-weighted index, not a defect of this page. Holding the ` +
+    `weights still is what makes the two lines here comparable to each other. ` +
+    `The largest single item in many Swiss household budgets — the health insurance ` +
+    `premium — is therefore outside this calculator entirely.`);
+  d3.select("#m3").html(
+    `Source: ${meta.source}, ${meta.table}, published ${meta.published}; ` +
+    `index base ${meta.index_base}; window ${meta.window[0]} to ${meta.window[1]}. ` +
+    `The published file is not versioned, so the copy used here is archived as ` +
+    `<code>${meta.archived_file}</code>. Licence: ${meta.licence}.`);
+
+  // self-test: with the sliders at the official weights the two lines coincide
+  const probe = combine(wOfficial);
+  const maxDiff = d3.max(probe.map((v, i) => Math.abs(v - official[i])));
+  d3.select("#selftest").html(
+    `Self-test: recombining with the official weights reproduces the grey line to ` +
+    `max |difference| = <strong>${maxDiff.toExponential(1)}</strong> over ` +
+    `${months.length} months (threshold 1e-9): ` +
+    `<strong>${maxDiff < 1e-9 ? "pass" : "FAIL"}</strong>.`);
+  console.log("self-test max|A-B| =", maxDiff);
+
+  window.addEventListener("resize", draw);
+  draw();
+}).catch(err => {
+  d3.select("#chart").html('<p style="color:#a33">Could not load ' +
+    '<code>data/lik_t13.json</code>. Serve this folder over http (for example ' +
+    '<code>python3 -m http.server</code>) — browsers block local file reads.</p>');
+  console.error(err);
+});
+</script>
+</body>
+</html>
